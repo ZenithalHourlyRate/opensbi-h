@@ -1,38 +1,57 @@
 /*
  * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * Copyright (c) 2019 Western Digital Corporation or its affiliates.
  */
 
+#include <sbi/riscv_asm.h>
 #include <sbi/riscv_encoding.h>
+#include <sbi/sbi_const.h>
+#include <sbi/sbi_platform.h>
+
 #include <sbi/riscv_io.h>
 #include <sbi/sbi_console.h>
-#include <sbi/sbi_const.h>
 #include <sbi/sbi_hart.h>
 #include <sbi/sbi_hsm.h>
 #include <sbi/sbi_trap.h>
-#include <sbi/sbi_platform.h>
 #include <sbi/sbi_bitops.h>
 #include <sbi/riscv_locks.h>
+
+/*
+ * Include these files as needed.
+ * See objects.mk PLATFORM_xxx configuration parameters.
+ */
+#include <sbi_utils/ipi/aclint_mswi.h>
 #include <sbi_utils/irqchip/plic.h>
 #include <sbi_utils/serial/uart8250.h>
-#include <sbi_utils/sys/clint.h>
-#include <sbi_utils/serial/fdt_serial.h>
-#include <sbi_utils/fdt/fdt_helper.h>
-#include <libfdt.h>
+#include <sbi_utils/timer/aclint_mtimer.h>
+
 #include "platform.h"
 
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
-#endif
+// TODO
+#define PLATFORM_ACLINT_MTIMER_FREQ	10000000
 
-static struct sg2040_regs_struct sg2040_regs;
-
-#ifndef __SG_QEMU__
-static struct clint_data clint = {
+static struct aclint_mswi_data mswi = {
+	.addr = SG2040_MSIP_BASE,
+	.size = ACLINT_MSWI_SIZE,
 	.first_hartid = 0,
 	.hart_count = SG2040_HART_COUNT,
-	.has_64bit_mmio = FALSE,
 };
-#endif
+
+static struct aclint_mtimer_data mtimer = {
+	.mtime_freq = PLATFORM_ACLINT_MTIMER_FREQ,
+	.mtime_addr = SG2040_MTIMECMP_BASE +
+		      ACLINT_DEFAULT_MTIME_OFFSET,
+	.mtime_size = ACLINT_DEFAULT_MTIME_SIZE,
+	.mtimecmp_addr = SG2040_MTIMECMP_BASE +
+			 ACLINT_DEFAULT_MTIMECMP_OFFSET,
+	.mtimecmp_size = ACLINT_DEFAULT_MTIMECMP_SIZE,
+	.first_hartid = 0,
+	.hart_count = SG2040_HART_COUNT,
+	.has_64bit_mmio = false,
+};
+
+static struct sg2040_regs_struct sg2040_regs;
 
 static spinlock_t init_lock = SPIN_LOCK_INITIALIZER;
 int need_set_cpu = 1;
@@ -40,32 +59,6 @@ unsigned long mcpuid, sub_revision;
 struct pmp pmp_addr[32] = {{0, 0}};
 unsigned long pmp_attr[9] = {0};
 unsigned long pmp_base, pmp_entry, pmp_cfg, mrvbr, mrmr;
-
-#if 0
-static void parse_dts()
-{
-	int off;
-	const void *prop;
-	void *fdt = sbi_scratch_thishart_arg1_ptr();
-
-	fdt_parse_compat_addr(fdt, &pmp_base, "pmp");
-	fdt_parse_compat_addr(fdt, &mrvbr, "mrvbr");
-	fdt_parse_compat_addr(fdt, &mrmr, "mrmr");
-
-	sbi_printf("pmp: 0x%lx\n", pmp_base);
-	sbi_printf("mrvbr: 0x%lx\n", mrvbr);
-	sbi_printf("mrmr: 0x%lx\n", mrmr);
-
-	off = fdt_path_offset(fdt, "/core_release");
-	if (off < 0)
-		return;
-
-	prop = fdt_getprop(fdt, off, "set_cpu_type", NULL);
-	sbi_printf("prop: %s\n", (char *)prop);
-	if (!sbi_strcmp(prop, "uboot"))
-		need_set_cpu = 0;
-}
-#endif
 
 #define PMP_CFG_R	BIT(0)
 #define PMP_CFG_W	BIT(1)
@@ -114,6 +107,9 @@ void setup_cpu(void)
 
 }
 
+/*
+ * Platform early initialization.
+ */
 static int sg2040_early_init(bool cold_boot)
 {
 	if (cold_boot) {
@@ -202,6 +198,21 @@ static int sg2040_final_init(bool cold_boot)
 	return 0;
 }
 
+/*
+ * Initialize the platform console.
+ */
+static int sg2040_console_init(void)
+{
+	return uart8250_init(
+			SG2040_UART0_ADDRBASE,
+			SG2040_UART0_FREQ,
+			SG2040_CONSOLE_BDRATE,
+			2, 0, 0);
+}
+
+/*
+ * Initialize the platform interrupt controller for current HART.
+ */
 static int sg2040_irqchip_init(bool cold_boot)
 {
 	/* Delegate plic enable into S-mode */
@@ -212,47 +223,41 @@ static int sg2040_irqchip_init(bool cold_boot)
 	return 0;
 }
 
+/*
+ * Initialize IPI for current HART.
+ */
 static int sg2040_ipi_init(bool cold_boot)
 {
-	#ifndef __SG_QEMU__
-	int rc;
-
-	if (cold_boot) {
-		rc = clint_cold_ipi_init(&clint);
-		if (rc)
-			return rc;
-	}
-
-	return clint_warm_ipi_init();
-	#else
-	return 0;
-	#endif
-}
-
-static int sg2040_timer_init(bool cold_boot)
-{
-	#ifndef __SG_QEMU__
 	int ret;
 
+	/* Example if the generic ACLINT driver is used */
 	if (cold_boot) {
-		ret = clint_cold_timer_init(&clint, NULL);
+		ret = aclint_mswi_cold_init(&mswi);
 		if (ret)
 			return ret;
 	}
 
-	return clint_warm_timer_init();
-	#else
-	return 0;
-	#endif
+	return aclint_mswi_warm_init();
 }
 
-static int sg2040_system_reset(u32 type)
+/*
+ * Initialize platform timer for current HART.
+ */
+static int sg2040_timer_init(bool cold_boot)
 {
-	asm volatile ("ebreak");
-	return 0;
+	int ret;
+
+	/* Example if the generic ACLINT driver is used */
+	if (cold_boot) {
+		ret = aclint_mtimer_cold_init(&mtimer, NULL);
+		if (ret)
+			return ret;
+	}
+
+	return aclint_mtimer_warm_init();
 }
 
-void sbi_pmu_init(void)
+void sg2040_pmu_init(void)
 {
 	unsigned long interrupts;
 
@@ -289,7 +294,7 @@ void sbi_pmu_init(void)
 	csr_write(CSR_MHPMEVENT28, 26);
 }
 
-void sbi_pmu_map(unsigned long idx, unsigned long event_id)
+void sg2040_pmu_map(unsigned long idx, unsigned long event_id)
 {
 	switch (idx) {
 	case 3:
@@ -382,26 +387,26 @@ void sbi_pmu_map(unsigned long idx, unsigned long event_id)
 	}
 }
 
-void sbi_set_pmu(unsigned long type, unsigned long idx, unsigned long event_id)
+void sg2040_set_pmu(unsigned long type, unsigned long idx, unsigned long event_id)
 {
 	switch (type) {
 	case 2:
-		sbi_pmu_map(idx, event_id);
+		sg2040_pmu_map(idx, event_id);
 		break;
 	default:
-		sbi_pmu_init();
+		sg2040_pmu_init();
 		break;
 	}
 }
 
 static int sg2040_vendor_ext_provider(long extid, long funcid,
-				unsigned long *args,
+				const struct sbi_trap_regs *regs,
 				unsigned long *out_value,
 				struct sbi_trap_info *out_trap)
 {
 	switch (extid) {
 	case SBI_EXT_VENDOR_SG2040_SET_PMU:
-		sbi_set_pmu(args[0], args[1], args[2]);
+		sg2040_set_pmu(regs->a0, regs->a1, regs->a2);
 		break;
 	default:
 		sbi_printf("Unsupported private sbi call: %ld\n", extid);
@@ -410,44 +415,24 @@ static int sg2040_vendor_ext_provider(long extid, long funcid,
 	return 0;
 }
 
-static int sg2040_console_init(void)
-{
-	return uart8250_init(
-			SG2040_UART0_ADDRBASE,
-			SG2040_UART0_FREQ,
-			SG2040_CONSOLE_BDRATE,
-			2, 0);
-}
-
+/*
+ * Platform descriptor.
+ */
 const struct sbi_platform_operations platform_ops = {
-	.early_init          = sg2040_early_init,
-	.final_init          = sg2040_final_init,
-
-	.irqchip_init        = sg2040_irqchip_init,
-
-	.ipi_init            = sg2040_ipi_init,
-	.ipi_send            = clint_ipi_send,
-	.ipi_clear           = clint_ipi_clear,
-
-	.timer_init          = sg2040_timer_init,
-	.timer_value	     = clint_timer_value,
-	.timer_event_start   = clint_timer_event_start,
-
-	.console_putc        = uart8250_putc,
-	.console_getc        = uart8250_getc,
-	.console_init        = sg2040_console_init,
-
-	.system_reset        = sg2040_system_reset,
-
+	.early_init		= sg2040_early_init,
+	.final_init		= sg2040_final_init,
+	.console_init		= sg2040_console_init,
+	.irqchip_init		= sg2040_irqchip_init,
+	.ipi_init		= sg2040_ipi_init,
+	.timer_init		= sg2040_timer_init,
 	.vendor_ext_provider = sg2040_vendor_ext_provider,
 };
-
 const struct sbi_platform platform = {
-	.opensbi_version     = OPENSBI_VERSION,
-	.platform_version    = SBI_PLATFORM_VERSION(0x0, 0x01),
-	.name                = "Sophgo manGo sg2040",
-	.features            = SBI_SOPHGO_FEATURES,
-	.hart_count          = SG2040_HART_COUNT,
-	.hart_stack_size     = SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
-	.platform_ops_addr   = (unsigned long)&platform_ops
+	.opensbi_version	= OPENSBI_VERSION,
+	.platform_version	= SBI_PLATFORM_VERSION(0x0, 0x01),
+	.name		= "Sophgo manGo sg2040",
+	.features		= SBI_SOPHGO_FEATURES,
+	.hart_count		= SG2040_HART_COUNT,
+	.hart_stack_size	= SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
+	.platform_ops_addr	= (unsigned long)&platform_ops
 };
