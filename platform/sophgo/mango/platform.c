@@ -28,8 +28,7 @@
 
 #include "platform.h"
 
-// TODO
-#define PLATFORM_ACLINT_MTIMER_FREQ	10000000
+#define PLATFORM_ACLINT_MTIMER_FREQ	50000000
 
 static struct aclint_mswi_data mswi = {
 	.addr = SG2040_MSIP_BASE,
