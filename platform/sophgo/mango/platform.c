@@ -119,7 +119,8 @@ static int sg2040_early_init(bool cold_boot)
 
 		/* Get bit [23...18] */
 		sub_revision = (mcpuid & 0xfc0000) >> 18;
-		sbi_printf("sub_revision: %ld\n", sub_revision);
+        // to avoid changing sbi_init
+		//sbi_printf("sub_revision: %ld\n", sub_revision);
 
 		// parse_dts();
 		sg2040_regs.plic_base_addr = SG2040_PLIC_BASE;
