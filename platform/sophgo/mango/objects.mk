@@ -7,7 +7,7 @@ MANGO_C920 = y
 MANGO_DVM = n
 
 
-MANGO_CFLAGS = -DMANGO
+MANGO_CFLAGS = -DMANGO -Iplatform/sophgo/mango
 
 ifeq ($(strip $(MANGO_PLATFORM_PLD)), y)
 MANGO_CFLAGS += -DMANGO_PLATFORM_PLD

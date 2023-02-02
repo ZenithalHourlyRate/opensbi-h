@@ -184,7 +184,7 @@ static void sg2040_delegate_more_traps()
 
 	/* Delegate 0 ~ 7 exceptions to S-mode */
 	exceptions |= ((1U << CAUSE_MISALIGNED_FETCH) | (1U << CAUSE_FETCH_ACCESS) |
-		(1U << CAUSE_ILLEGAL_INSTRUCTION) | (1U << CAUSE_BREAKPOINT) |
+		(1U << CAUSE_BREAKPOINT) |
 		(1U << CAUSE_MISALIGNED_LOAD) | (1U << CAUSE_LOAD_ACCESS) |
 		(1U << CAUSE_MISALIGNED_STORE) | (1U << CAUSE_STORE_ACCESS));
 
