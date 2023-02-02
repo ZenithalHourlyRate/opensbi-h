@@ -18,37 +18,43 @@
 #include <sbi/sbi_timer.h>
 #include <sbi_utils/timer/aclint_mtimer.h>
 
+static inline u64 mango_timer_value(void)
+{
+	return csr_read(CSR_TIME);
+}
+
 static struct aclint_mtimer_data *mtimer_hartid2data[SBI_HARTMASK_MAX_BITS];
 
 #if __riscv_xlen != 32
 static u64 mtimer_time_rd64(volatile u64 *addr)
 {
-	return readq_relaxed(addr);
+	return mango_timer_value();//readq_relaxed(addr);
 }
 
 static void mtimer_time_wr64(bool timecmp, u64 value, volatile u64 *addr)
 {
-	writeq_relaxed(value, addr);
+	//writeq_relaxed(value, addr);
 }
 #endif
 
 static u64 mtimer_time_rd32(volatile u64 *addr)
 {
-	u32 lo, hi;
+	//u32 lo, hi;
 
-	do {
-		hi = readl_relaxed((u32 *)addr + 1);
-		lo = readl_relaxed((u32 *)addr);
-	} while (hi != readl_relaxed((u32 *)addr + 1));
+	//do {
+	//	hi = readl_relaxed((u32 *)addr + 1);
+	//	lo = readl_relaxed((u32 *)addr);
+	//} while (hi != readl_relaxed((u32 *)addr + 1));
 
-	return ((u64)hi << 32) | (u64)lo;
+	//return ((u64)hi << 32) | (u64)lo;
+    return mango_timer_value();
 }
 
 static void mtimer_time_wr32(bool timecmp, u64 value, volatile u64 *addr)
 {
-	writel_relaxed((timecmp) ? -1U : 0U, (void *)(addr));
-	writel_relaxed((u32)(value >> 32), (char *)(addr) + 0x04);
-	writel_relaxed((u32)value, (void *)(addr));
+	//writel_relaxed((timecmp) ? -1U : 0U, (void *)(addr));
+	//writel_relaxed((u32)(value >> 32), (char *)(addr) + 0x04);
+	//writel_relaxed((u32)value, (void *)(addr));
 }
 
 static u64 mtimer_value(void)
