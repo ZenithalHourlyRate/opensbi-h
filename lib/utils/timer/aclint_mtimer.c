@@ -18,9 +18,22 @@
 #include <sbi/sbi_timer.h>
 #include <sbi_utils/timer/aclint_mtimer.h>
 
+#include "platform.h"
+
 static inline u64 mango_timer_value(void)
 {
 	return csr_read(CSR_TIME);
+}
+
+static inline void *mango_cmp_addr(struct aclint_mtimer_data *mt,
+				   unsigned long hartid)
+{
+	unsigned int clusterid = MANGO_CLUSTER_ID(hartid);
+	unsigned int coreid = MANGO_CORE_ID(hartid);
+
+	return (void *)((unsigned long)(mt->mtimecmp_addr) +
+		clusterid * MANGO_MTIMECMP_SIZE_PER_CLUSTER +
+		coreid * 8);
 }
 
 static struct aclint_mtimer_data *mtimer_hartid2data[SBI_HARTMASK_MAX_BITS];
@@ -28,12 +41,16 @@ static struct aclint_mtimer_data *mtimer_hartid2data[SBI_HARTMASK_MAX_BITS];
 #if __riscv_xlen != 32
 static u64 mtimer_time_rd64(volatile u64 *addr)
 {
+	// FIXME: ensure it is only mtime, not mtimecmp
 	return mango_timer_value();//readq_relaxed(addr);
 }
 
 static void mtimer_time_wr64(bool timecmp, u64 value, volatile u64 *addr)
 {
-	//writeq_relaxed(value, addr);
+	// CSR_TIME can not be written in C920
+	if (timecmp) {
+		writeq_relaxed(value, addr);
+	}
 }
 #endif
 
@@ -52,9 +69,12 @@ static u64 mtimer_time_rd32(volatile u64 *addr)
 
 static void mtimer_time_wr32(bool timecmp, u64 value, volatile u64 *addr)
 {
-	//writel_relaxed((timecmp) ? -1U : 0U, (void *)(addr));
-	//writel_relaxed((u32)(value >> 32), (char *)(addr) + 0x04);
-	//writel_relaxed((u32)value, (void *)(addr));
+	// CSR_TIME can not be written in C920
+	if (timecmp) {
+		writel_relaxed((timecmp) ? -1U : 0U, (void *)(addr));
+		writel_relaxed((u32)(value >> 32), (char *)(addr) + 0x04);
+		writel_relaxed((u32)value, (void *)(addr));
+	}
 }
 
 static u64 mtimer_value(void)
@@ -70,21 +90,21 @@ static void mtimer_event_stop(void)
 {
 	u32 target_hart = current_hartid();
 	struct aclint_mtimer_data *mt = mtimer_hartid2data[target_hart];
-	u64 *time_cmp = (void *)mt->mtimecmp_addr;
+	//u64 *time_cmp = (void *)mt->mtimecmp_addr;
 
 	/* Clear MTIMER Time Compare */
-	mt->time_wr(true, -1ULL, &time_cmp[target_hart - mt->first_hartid]);
+	mt->time_wr(true, -1ULL, mango_cmp_addr(mt, target_hart));
 }
 
 static void mtimer_event_start(u64 next_event)
 {
 	u32 target_hart = current_hartid();
 	struct aclint_mtimer_data *mt = mtimer_hartid2data[target_hart];
-	u64 *time_cmp = (void *)mt->mtimecmp_addr;
+	//u64 *time_cmp = (void *)mt->mtimecmp_addr;
 
 	/* Program MTIMER Time Compare */
 	mt->time_wr(true, next_event,
-		    &time_cmp[target_hart - mt->first_hartid]);
+		    mango_cmp_addr(mt, target_hart));
 }
 
 static struct sbi_timer_device mtimer = {
@@ -130,7 +150,7 @@ void aclint_mtimer_set_reference(struct aclint_mtimer_data *mt,
 
 int aclint_mtimer_warm_init(void)
 {
-	u64 *mt_time_cmp;
+	//u64 *mt_time_cmp;
 	u32 target_hart = current_hartid();
 	struct aclint_mtimer_data *mt = mtimer_hartid2data[target_hart];
 
@@ -141,9 +161,9 @@ int aclint_mtimer_warm_init(void)
 	aclint_mtimer_sync(mt);
 
 	/* Clear Time Compare */
-	mt_time_cmp = (void *)mt->mtimecmp_addr;
+	//mt_time_cmp = (void *)mt->mtimecmp_addr;
 	mt->time_wr(true, -1ULL,
-		    &mt_time_cmp[target_hart - mt->first_hartid]);
+		    mango_cmp_addr(mt, target_hart));
 
 	return 0;
 }
