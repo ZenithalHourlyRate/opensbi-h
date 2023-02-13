@@ -769,6 +769,8 @@ memcmp:
 	.globl _trap_handler
 	.globl _trap_exit
 _trap_handler:
+	sfence.vma
+	fence.i
 	TRAP_SAVE_AND_SETUP_SP_T0
 
 	TRAP_SAVE_MEPC_MSTATUS 0
