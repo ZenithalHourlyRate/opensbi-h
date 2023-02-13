@@ -364,7 +364,7 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 	}
 
 	sbi_domain_memregion_init(mem_end_aligned - alloc_size, alloc_size,
-				  SBI_DOMAIN_MEMREGION_READABLE, &region);
+				  SBI_DOMAIN_MEMREGION_READABLE | SBI_DOMAIN_MEMREGION_SU_RWX, &region);
 
 	rc = sbi_domain_root_add_memregion(&region);
 	if (rc) {

@@ -175,8 +175,8 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		ppn = ((pte >> PTE_PPN_SHIFT) & PTE_PPN_MASK);
 
 #if __riscv_xlen == 64
-		if ((pte >> PTE64_RESERVED_SHIFT) != 0)
-			goto invalid;
+		//if ((pte >> PTE64_RESERVED_SHIFT) != 0)
+		//	goto invalid;
 #endif
 
 		if (pte & (PTE_R | PTE_W | PTE_X)) {
@@ -262,7 +262,7 @@ void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
 			       << PAGE_SHIFT;
 		} else {
 			*pte = out->prot |
-			       ((out->base >> PAGE_SHIFT) << PTE_PPN_SHIFT);
+			       ((out->base >> PAGE_SHIFT) << PTE_PPN_SHIFT) | 0x7000000000000000UL;
 		}
 	}
 

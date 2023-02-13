@@ -61,9 +61,9 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 			sbi_panic("%s: Impossible to enforce sstatus.FS = Off",
 				  __func__);
 
-		if (misa_extension('V') && (hext->sstatus & SSTATUS_VS) == 0)
-			sbi_panic("%s: Impossible to enforce sstatus.VS = Off",
-				  __func__);
+		//if (misa_extension('V') && (hext->sstatus & SSTATUS_VS) == 0)
+		//	sbi_panic("%s: Impossible to enforce sstatus.VS = Off",
+		//		  __func__);
 
 		hext->sstatus &= SSTATUS_SIE;
 		hext->sstatus |=
