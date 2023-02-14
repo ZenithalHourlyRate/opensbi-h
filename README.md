@@ -1,6 +1,23 @@
 OpenSBI-H: OpenSBI with Software-emulated Hypervisor Extension
 ==============================================================
 
+Fork
+----
+
+This is a fork of [OpenSBi-H] that has sophgo mango support.
+
+This fork can bring up a 64-hart RISC-V VM with the following host and guest
+  * https://github.com/ZenithalHourlyRate/linux/tree/sophgo-host
+  * https://github.com/ZenithalHourlyRate/linux/tree/sophgo-guest
+
+Limitations:
+  * Guest VM should not enable Vector Extension as VS/HS switching is not aware of V regs.
+  * PMP for shadow PT has been disabled
+  * MAEE support is preliminary
+
+Intro
+-----
+
 This is a fork of [OpenSBI] that adds software-emulated hypervisor extension
 support. It is very much work-in-progress at the moment.
 
