@@ -10,6 +10,12 @@ This fork can bring up a 64-hart RISC-V VM with the following host and guest
   * https://github.com/ZenithalHourlyRate/linux/tree/sophgo-host
   * https://github.com/ZenithalHourlyRate/linux/tree/sophgo-guest
 
+Command
+
+```bash
+./qemu-7.2.0/build/qemu-system-riscv64 -M virt,accel=kvm -kernel Image -initrd initrd.cpio -append 'earlycon=sbi init=/init' -nographic -smp 64 -m 16G
+```
+
 Limitations:
   * Guest VM should not enable Vector Extension as VS/HS switching is not aware of V regs.
   * PMP for shadow PT has been disabled
