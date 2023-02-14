@@ -278,7 +278,7 @@ static void tlb_process_count(struct sbi_scratch *scratch, int count)
 	while (!sbi_fifo_dequeue(tlb_fifo, &tinfo)) {
 		tlb_entry_process(&tinfo);
 		deq_count++;
-		if (deq_count > count)
+		if (deq_count >= count)
 			break;
 
 	}
