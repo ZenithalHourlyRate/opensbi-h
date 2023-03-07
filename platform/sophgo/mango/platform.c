@@ -415,6 +415,11 @@ static int sg2040_vendor_ext_provider(long extid, long funcid,
 	return 0;
 }
 
+static bool sg2040_cold_boot_allowed(u32 hartid)
+{
+	return hartid == 0;
+}
+
 /*
  * Platform descriptor.
  */
@@ -426,6 +431,7 @@ const struct sbi_platform_operations platform_ops = {
 	.ipi_init		= sg2040_ipi_init,
 	.timer_init		= sg2040_timer_init,
 	.vendor_ext_provider = sg2040_vendor_ext_provider,
+	.cold_boot_allowed		= sg2040_cold_boot_allowed,
 };
 const struct sbi_platform platform = {
 	.opensbi_version	= OPENSBI_VERSION,
